@@ -1,4 +1,4 @@
-# puc
+# PUC-experiments
 
 This repository contains the implementations used in the PUC paper.
 
