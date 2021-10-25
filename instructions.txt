@@ -1,0 +1,10 @@
+1) download the data files from https://tinyurl.com/ay44c62r
+2) unzip files.zip into the inputs folder
+3) setup a virtual environment using virtualenv and requirements.txt:
+	- virtualenv venv
+	- source venv/bin/activate
+	- pip install -r requirements.txt
+4) resolve the mpltools/special/hinton.py set_axis_bgcolor issue by replacing it with set_facecolor (see https://github.com/tonysyu/mpltools/issues/33 for the details)
+
+5) run column dimension experimenets using python -m experiments.reproduce_dimension_exps
+6) run unit identification experimenets using python -m src.experiments.reproduce_cell_unit_exps
