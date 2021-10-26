@@ -2,7 +2,6 @@ import json
 import numpy as np
 
 from src.utils import (
-    get_all_entities,
     get_names_for_symbol,
     get_symbols_for_entity,
     get_num,
@@ -19,13 +18,8 @@ from src.utils import (
     convert_value,
     load_json_2_dict,
     edit_distance,
-    edit_distance_header,
     parse_cell_value,
-    log_sum_exp,
 )
-
-# from qudt.ontology import UnitFactory
-# from wikidata.client import Client
 
 
 class PUC:
@@ -33,6 +27,11 @@ class PUC:
 
         self.unit_ontology = load_json_2_dict(unit_ontology_path)
         self.dimensions = list(self.unit_ontology.keys())
+        self.units = json.load(open("experiments/inputs/units.json"))
+        # self.symbols =
+        self.symbols = {
+            d: get_symbols_for_entity(d, self.units) for d in self.dimensions
+        }
 
     def generate_likelihoods(self, x):
         log_probabilities, x_unique, x_counts = calculate_likelihoods(
@@ -89,7 +88,7 @@ class PUC:
 
         return predictions
 
-    def infer_cell_dimension(self, x_i, t):
+    def infer_cell_type(self, x_i, t):
         row_units = ["u_i", "missing", "anomaly"]
         p_z_i = run_row_type_inference(
             self.log_probabilities, x_i, t, self.unit_ontology
@@ -97,10 +96,10 @@ class PUC:
         z_i = row_units[np.argmax(p_z_i)]
         return z_i
 
-    def infer_cell_dimensions(self, y, v, x, t):
+    def infer_cell_types(self, y, v, x, t):
         predictions = {}
         for y_i, v_i, x_i in zip(y, v, x):
-            z_i = self.infer_cell_dimension(x_i, t)
+            z_i = self.infer_cell_type(x_i, t)
             predictions[y_i] = z_i
 
         return predictions
@@ -525,65 +524,16 @@ class PUC:
 
             return df_new
 
-    def infer_column_unit_type(self, x, column, feature):
+    def infer_column_unit_type(self, x):
         z = [parse_cell_value(x_i) for x_i in x]
         y = [z_i[0] for z_i in z]
         x = [z_i[1] for z_i in z]
 
-        print("x=", x)
-
-        # y = [get_num(x_i) for x_i in x]
-        # x = [get_unit(x_i) for x_i in x]
-
-        # calculate log prior probabilities using column and self.types
-        # coeffs = []
-        # for t in self.types:
-        #     min_dist = 999
-        #     for token in column.split(' '):
-        #         current_dist = edit_distance_header(token, t)
-
-        #         if current_dist < min_dist:
-        #             min_dist = current_dist
-        #     coeffs.append(min_dist)
-        print("feature", feature)
-        if feature == "no header":
-            log_prior = [np.log(1.0 / len(self.dimensions)) for t in self.dimensions]
-        elif feature == "string_similarity":
-            coeffs = [edit_distance(column, t) for t in self.dimensions]
-            log_prior = [np.log(1.0 - coeff / sum(coeffs)) for coeff in coeffs]
-        elif feature == "embedding_similarity":
-            # coeffs = [scapy_embedding_similarity(column, t) for t in self.types]
-            coeffs = [fast_text_similarity(column, t) for t in self.dimensions]
-            if sum(coeffs) == 0:
-                log_prior = [np.log(1.0 / len(coeffs)) for coeff in coeffs]
-            else:
-                log_prior = [np.log(coeff / sum(coeffs)) for coeff in coeffs]
-        elif feature == "both":
-            coeffs = [edit_distance(column, t) for t in self.dimensions]
-            prior_string = [1.0 - coeff / sum(coeffs) for coeff in coeffs]
-
-            # coeffs = [scapy_embedding_similarity(column, t) for t in self.types]
-            coeffs = [fast_text_similarity(column, t) for t in self.dimensions]
-            if sum(coeffs) == 0:
-                prior_embedding = [1.0 / len(coeffs) for coeff in coeffs]
-            else:
-                prior_embedding = [coeff / sum(coeffs) for coeff in coeffs]
-
-            log_prior = [
-                np.log((prior_s + prior_e) / 2.0)
-                for prior_s, prior_e in zip(prior_string, prior_embedding)
-            ]
-        else:
-            print("Undefined feature!")
-        # print('only header with gensim', column, self.types[np.argmax(log_prior)])
-
-        # log_prior = [np.log(edit_distance(column, t)) for t in self.types]
-        # print('only header with edit distance', column, self.types[np.argmax(log_prior)])
+        log_prior = [np.log(1.0 / len(self.dimensions)) for t in self.dimensions]
         logP, unique_values_in_a_column, counts = generate_probs_a_column(
             x, self.symbols, self.dimensions
         )
         [p_t, p_z] = run_inference(logP, counts, log_prior)
-        print("p_t", p_t)
         if len(np.unique(p_t)) == 1:
             return "no unit", "no unit"
         else:

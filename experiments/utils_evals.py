@@ -1,3 +1,7 @@
+from fractions import Fraction
+from experiments.Constants import DATA_PATHS
+from experiments.utils_IO import read_dataset
+
 import numpy as np
 import pandas as pd
 
@@ -21,6 +25,27 @@ def as_table(evaluations, methods):
             "annotation",
         ]
         + methods,
+    )
+
+
+def as_table_cell(evaluations, methods):
+    evaluations_df = []
+    for d in evaluations:
+        for c in evaluations[d]:
+            temp = [d, c] + [evaluations[d][c][m]["correct"] for m in methods]
+            temp.append(
+                evaluations[d][c][methods[0]]["correct"]
+                + evaluations[d][c][methods[0]]["false"]
+            )
+            evaluations_df.append(temp)
+    return pd.DataFrame.from_records(
+        evaluations_df,
+        columns=[
+            "dataset",
+            "column",
+        ]
+        + methods
+        + ["total # unique entries"],
     )
 
 
@@ -72,16 +97,39 @@ def calculate_metrics(df, methods):
     return metrics
 
 
-def as_table_times(times, methods):
-    # methods = {
-    # "ccut": "CCUT",
-    # "grobid": "GQ",
-    # "ner": "S-NER",
-    # "pint": "Pint",
-    # "puc": "PUC",
-    # "quantulum": "Quantulum",
-    # }
+def calculate_metrics_cells(df, methods):
+    datasets = list(df["dataset"].unique())
+    datasets.sort()
+    if "2015ReportedTaserData" in datasets:
+        datasets.remove("2015ReportedTaserData")
+    N = len(datasets)
+    acc_table = np.zeros((N, len(methods)))
+    total_table = np.zeros((N, 1))
 
+    for index, row in df.iterrows():
+        dataset = row["dataset"]
+        if dataset in datasets:
+            dataset_index = datasets.index(dataset)
+            for i, method in enumerate(methods):
+                acc_table[dataset_index, i] += row[method]
+            total_table[dataset_index, 0] += row["total # unique entries"]
+
+    for dataset in datasets:
+        if dataset in datasets:
+            dataset_index = datasets.index(dataset)
+            for i in range(len(methods)):
+                acc_table[dataset_index, i] = (
+                    acc_table[dataset_index, i] / total_table[dataset_index, 0]
+                )
+
+    acc_table = np.around(acc_table, decimals=2)
+    accuracy_df = pd.DataFrame.from_records(
+        acc_table.T, columns=datasets, index=methods
+    )
+    return accuracy_df
+
+
+def as_table_times(times, methods):
     times_table = []
     for dataset in times:
         for column in times[dataset]:
@@ -94,3 +142,74 @@ def as_table_times(times, methods):
     times_df["Runtime (sec.)"] = times_df["Runtime (sec.)"].apply(lambda x: np.log10(x))
 
     return times_df
+
+
+def evaluate_prediction(truth, prediction):
+    # to convert '1/2' to 0.5
+    if (type(prediction) == dict) and type(prediction["magnitude"]) == str:
+
+        if prediction["magnitude"] == "":
+            prediction[
+                "magnitude"
+            ] = 1.0  # missing magnitude and filling it as 1 are assumed to be both correct.
+        else:
+            prediction["magnitude"] = float(Fraction(prediction["magnitude"]))
+
+    if (type(prediction) == dict) and type(prediction["unit"]) == list:
+        if len(prediction["unit"]) == 1:
+            if type(truth["unit"]) == list:
+                return (
+                    (type(prediction) == dict)
+                    and (truth["magnitude"] == float(prediction["magnitude"]))
+                    and (
+                        len(set(prediction["unit"]).intersection(set(truth["unit"])))
+                        > 0
+                    )
+                )
+            else:
+                return (
+                    (type(prediction) == dict)
+                    and (truth["magnitude"] == float(prediction["magnitude"]))
+                    and (truth["unit"] in prediction["unit"][0])
+                )
+        else:
+            # if len(prediction["unit"]) > 1:
+            #     print("multiple matches", prediction["unit"])
+            return False
+
+    else:
+        return (
+            (type(prediction) == dict)
+            and (truth["magnitude"] == float(prediction["magnitude"]))
+            and (prediction["unit"] in truth["unit"])
+        )
+
+
+def evaluate_identification_experiment(
+    dataset, columns, method, annotations, predictions
+):
+    evaluations = {col: {} for col in columns}
+    df = read_dataset(dataset, ALL_PATHS=DATA_PATHS)
+    for col in columns:
+        correct = 0
+        false = 0
+        unique_vals = np.unique(df[col].values)
+        if method == "PUC":
+            preds = predictions[col]
+        else:
+            preds = predictions
+
+        for unique_val in unique_vals:
+            if unique_val in annotations:
+                if preds == "no unit":
+                    false += 1
+                elif evaluate_prediction(annotations[unique_val], preds[unique_val]):
+                    correct += 1
+                else:
+                    false += 1
+            # else:
+            #     print("Not annotated!", unique_val, len(unique_val))
+        evaluations[col]["correct"] = correct
+        evaluations[col]["false"] = false
+
+    return evaluations

@@ -1,9 +1,9 @@
+from arpeggio import NoMatch
 from collections import Counter
-from fractions import Fraction
+from pint.errors import DefinitionSyntaxError, UndefinedUnitError
+from tokenize import TokenError
 from quantulum3 import parser
 
-from experiments.Constants import DATA_PATHS
-from experiments.utils_IO import read_dataset
 from src.PUC import PUC
 from src.utils import parse_cell_value
 
@@ -12,7 +12,6 @@ import pint
 import time
 
 Q_ = pint.UnitRegistry().Quantity
-
 # unitCanonicalizer = UnitCanonicalizer(unit_ontology_path='notebooks/unit-normalization/units_wikidata.json')
 unitCanonicalizer = PUC(unit_ontology_path="experiments/inputs/unit_ontology.json")
 
@@ -37,7 +36,7 @@ unitCanonicalizer = PUC(unit_ontology_path="experiments/inputs/unit_ontology.jso
 # grobid_server_url = "http://localhost:8060/service"
 # client = QuantitiesClient(apiBase=grobid_server_url)
 
-
+##### cell value predictions - begin #####
 def quantulum_predict(_cell_value):
     quants = parser.parse(_cell_value)
     # if len(quants) > 1:
@@ -125,7 +124,7 @@ def grobid_quantities_predict(_cell_value):
     return prediction
 
 
-def unit_canonicalizer_predict(y_i, t, u):
+def puc_predict(y_i, t, u):
     # print("y_i, t, u", y_i, len(y_i), t, u)
     v_i, z_i = unitCanonicalizer.infer_cell_unit(y_i, t, u)
     prediction = {"magnitude": v_i, "unit": z_i}
@@ -166,95 +165,12 @@ def ccut_predict(_cell_value):
     return prediction
 
 
-def evaluate_prediction(truth, prediction):
-    # to convert '1/2' to 0.5
-    if (type(prediction) == dict) and type(prediction["magnitude"]) == str:
+##### cell value predictions - end #####
 
-        if prediction["magnitude"] == "":
-            prediction[
-                "magnitude"
-            ] = 1.0  # missing magnitude and filling it as 1 are assumed to be both correct.
-        else:
-            prediction["magnitude"] = float(Fraction(prediction["magnitude"]))
-
-    if (type(prediction) == dict) and type(prediction["unit"]) == list:
-        if len(prediction["unit"]) == 1:
-            if type(truth["unit"]) == list:
-                return (
-                    (type(prediction) == dict)
-                    and (truth["magnitude"] == float(prediction["magnitude"]))
-                    and (
-                        len(set(prediction["unit"]).intersection(set(truth["unit"])))
-                        > 0
-                    )
-                )
-            else:
-                return (
-                    (type(prediction) == dict)
-                    and (truth["magnitude"] == float(prediction["magnitude"]))
-                    and (truth["unit"] in prediction["unit"][0])
-                )
-        else:
-            # if len(prediction["unit"]) > 1:
-            #     print("multiple matches", prediction["unit"])
-            return False
-
-    else:
-        return (
-            (type(prediction) == dict)
-            and (truth["magnitude"] == float(prediction["magnitude"]))
-            and (prediction["unit"] in truth["unit"])
-        )
-    # print(truth, prediction, (type(prediction) == dict) and (truth['magnitude'] == float(prediction['magnitude'])) and (prediction['unit'] in truth['unit']))
-
-
-def evaluate_identification_experiment(dataset, columns, annotations, ps):
-    evaluations = {}
-    df = read_dataset(dataset, ALL_PATHS=DATA_PATHS)
-
-    for column in columns:
-        correct = 0
-        false = 0
-        unique_vals = np.unique(df[column].values)
-        evaluations[column] = {}
-        predictions = ps[column]
-
-        for unique_value in unique_vals:
-            if unique_value in annotations:
-                if predictions == "no unit":
-                    false += 1
-                elif evaluate_prediction(
-                    annotations[unique_value], predictions[unique_value]
-                ):
-                    correct += 1
-                else:
-                    # print(
-                    #     "False prediction!:",
-                    #     unique_value,
-                    #     annotations[unique_value],
-                    #     predictions[unique_value],
-                    # )
-                    false += 1
-            else:
-                print("Not annotated!", unique_value, len(unique_value))
-
-        evaluations[column]["correct"] = correct
-        evaluations[column]["false"] = false
-
-    return evaluations
-
-
-def infer_type_column(df, _column_name, _features):
-
+##### PUC utils - begin #####
+def infer_type_column(df, _column_name):
     x = df[_column_name].to_frame()[_column_name].values
-
-    t = {}
-    p_z = {}
-    for _feature in _features:
-        t[_feature], p_z[_feature] = unitCanonicalizer.infer_column_unit_type(
-            x, _column_name, _feature
-        )
-
+    t, p_z = unitCanonicalizer.infer_column_unit_type(x)
     return t, p_z
 
 
@@ -273,80 +189,55 @@ def infer_column_dimension():
     return unitCanonicalizer.infer_column_dimension()
 
 
-def infer_column_unit(u):
-    return unitCanonicalizer.infer_column_unit(u)
-
-
-def convert_row_unit(v_i, u_i, u):
-    return unitCanonicalizer.convert_row_unit(v_i, u_i, u)
-
-
 def infer_cell_units(y, v, x, z, k):
     return unitCanonicalizer.infer_cell_units(y, v, x, z, k)
 
 
-def infer_cell_dimensions(y, v, x, k):
-    return unitCanonicalizer.infer_cell_dimensions(y, v, x, k)
+def infer_cell_types(y, v, x, k):
+    return unitCanonicalizer.infer_cell_types(y, v, x, k)
 
 
-def infer_column_unit(u):
+##### PUC utils - end #####
 
-    unit_symbol_predicted = unitCanonicalizer.infer_column_unit(u)
-
-    return unit_symbol_predicted
-
-
+##### run utils - begin #####
 def identify_unit_cell(y_i, method, t=None):
-    if method == "pint":
+    if method == "Pint":
         prediction = pint_predict(y_i)
-    elif method == "quantulum":
+    elif method == "Quantulum":
         prediction = quantulum_predict(y_i)
-    elif method == "ccut":
+    elif method == "CCUT":
         prediction = ccut_predict(y_i)
-    elif method == "grobid_quantities":
+    elif method == "GQ":
         prediction = grobid_quantities_predict(y_i)
-    elif method == "unit_canonicalizer":
-        prediction = unit_canonicalizer_predict(y_i, t)
+    elif method == "PUC":
+        prediction = puc_predict(y_i, t)
     else:
         return "unknown method!"
 
     return prediction
 
 
-def identify_row_unit(x_i, method, t=None, u=None):
-    if method == "pint":
+def identify_cell_unit(x_i, method, t=None, u=None):
+    if method == "Pint":
         prediction = pint_predict(x_i)
-    elif method == "quantulum":
+    elif method == "Quantulum":
         prediction = quantulum_predict(x_i)
-    elif method == "ccut":
+    elif method == "CCUT":
         prediction = ccut_predict(x_i)
-    elif method == "grobid_quantities":
+    elif method == "GQ":
         prediction = grobid_quantities_predict(x_i)
-    elif method == "unit_canonicalizer":
-        prediction = unit_canonicalizer_predict(x_i, t, u)
+    elif method == "PUC":
+        prediction = puc_predict(x_i, t, u)
     else:
         return "unknown method!"
 
     return prediction
-
-
-def run_measurement_type_experiment(df, columns):
-
-    predicted_types = {}
-    if columns == "all":
-        columns = df.columns
-
-    for column in columns:
-        predicted_types[column] = infer_column_dimension(df, column)
-
-    # save_output(dataset, predicted_types)
-    return predicted_types
 
 
 def run_dimension_experiments(df, columns):
-    predicted_col_dims = {}
-    predicted_cell_units = {}
-    predicted_cell_dims = {}
+    col_dims = {}
+    cell_types = {}
+    cell_units = {}
     if columns == "all":
         columns = df.columns
 
@@ -365,14 +256,14 @@ def run_dimension_experiments(df, columns):
             z = "no unit"
             u = "no unit"
         else:
-            z = infer_cell_dimensions(y, v, x, t)
+            z = infer_cell_types(y, v, x, t)
             u = infer_cell_units(y, v, x, z, t)
 
-        predicted_col_dims[column] = t
-        predicted_cell_units[column] = u
-        predicted_cell_dims[column] = z
+        col_dims[column] = t
+        cell_types[column] = z
+        cell_units[column] = u
 
-    return predicted_col_dims, predicted_cell_units, times
+    return col_dims, cell_types, cell_units, times
 
 
 def run_competitor_column_experiments(df, columns, method):
@@ -560,33 +451,27 @@ def run_ner_column_experiments(df, columns):
     return predicted_dims, None, times
 
 
-def run_identification_experiment(
-    df, columns, method, cell_type=None, features=None, exp=False
-):
+def run_identification_experiment(df, cols, method, col_dims=None, cell_types=None):
     predicted_units = {}
 
-    if method == "unit_canonicalizer":
-        print(method)
-        for column in columns:
-            print("column", column)
-            unique_vals = np.unique(df[column].values)
-            for cell_value in unique_vals:
-                res = identify_unit_cell(
-                    cell_value,
-                    method,
-                    cell_type=cell_type[column][features[0]],
-                    exp=exp,
+    if method == "PUC":
+        for col in cols:
+            unique_vals = np.unique(df[col].values)
+            for cell_val in unique_vals:
+                res = identify_cell_unit(
+                    cell_val, method, t=col_dims[col], u=cell_types[col]
                 )
-                print("unit_canonicalizer", cell_value, cell_type[column], res)
-                predicted_units[cell_value] = res
+                predicted_units[cell_val] = res
     else:
-        unique_vals = np.unique(df[columns].values)
+        unique_vals = np.unique(df[cols].values)
 
-        for cell_value in unique_vals:
+        for cell_val in unique_vals:
             try:
-                res = identify_unit_cell(cell_value, method)
+                res = identify_unit_cell(cell_val, method)
             except UndefinedUnitError:
                 res = "UndefinedUnitError"
+            except DefinitionSyntaxError:
+                res = "DefinitionSyntaxError"
             except ValueError:
                 res = "ValueError"
             except FileNotFoundError:
@@ -602,65 +487,9 @@ def run_identification_experiment(
             except NoMatch:
                 res = "NoMatch"
 
-            predicted_units[cell_value] = res
+            predicted_units[cell_val] = res
 
     return predicted_units
 
 
-def run_row_unit_experiment(df, columns, method, t=None, u=None):
-    predicted_row_units = {}
-    for column in columns:
-        predicted_column_row_units = {}
-        unique_vals = np.unique(df[column].values)
-        for cell_value in unique_vals:
-            try:
-                res = identify_unit_cell(cell_value, method)
-            except UndefinedUnitError:
-                res = "UndefinedUnitError"
-            except ValueError:
-                res = "ValueError"
-            except FileNotFoundError:
-                res = "FileNotFoundError"
-            except AttributeError:
-                res = "AttributeError"
-            except TokenError:
-                res = "TokenError"
-            except TypeError:
-                res = "TypeError"
-            except KeyError:
-                res = "KeyError"
-            except NoMatch:
-                res = "NoMatch"
-
-            predicted_column_row_units[cell_value] = res
-
-        predicted_row_units[column] = predicted_column_row_units
-
-    return predicted_row_units
-
-
-def run_identification_cell_value(cell_value, method, cell_type=None):
-
-    if method == "unit_canonicalizer":
-        res = identify_unit_cell(cell_value, method, cell_type)
-    else:
-        try:
-            res = identify_unit_cell(cell_value, method)
-        except UndefinedUnitError:
-            res = "UndefinedUnitError"
-        except ValueError:
-            res = "ValueError"
-        except FileNotFoundError:
-            res = "FileNotFoundError"
-        except AttributeError:
-            res = "AttributeError"
-        except TokenError:
-            res = "TokenError"
-        except TypeError:
-            res = "TypeError"
-        except KeyError:
-            res = "KeyError"
-        except NoMatch:
-            res = "NoMatch"
-
-    return res
+##### run utils - end #####

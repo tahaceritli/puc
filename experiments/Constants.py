@@ -1,24 +1,24 @@
 # CONSTANTS FOR PATHS
-DATA_ROOT = "experiments/inputs/files_new/"
+DATA_ROOT = "experiments/inputs/files/"
 INPUT_ROOT = "experiments/inputs/"
 OUTPUT_ROOT = "experiments/outputs/"
 DATASETS = [
     "arabica_ratings",
     # "hes",
     "huffman",
-    # "phm",
-    # "maize_meal",
-    # "mba",
-    # "open_units",
-    # "query_2",
-    # "query_4",
-    # "robusta_ratings",
-    # "zomato",
-    # "1438042987662",
-    # "1438042986423",
-    # "22864497_0_8632623712684511496",
-    # "3b5902071ea0f7e0cde6955fb6e474ff",
-    # "2015ReportedTaserData",
+    "phm",
+    "maize_meal",
+    "mba",
+    "open_units",
+    "query_2",
+    "query_4",
+    "robusta_ratings",
+    "zomato",
+    "1438042987662",
+    "1438042986423",
+    "22864497_0_8632623712684511496",
+    "3b5902071ea0f7e0cde6955fb6e474ff",
+    "2015ReportedTaserData",
 ]
 
 

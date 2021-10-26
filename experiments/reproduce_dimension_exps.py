@@ -20,7 +20,7 @@ def run(data_paths, datasets, methods):
 
         for method in methods:
             if method == "PUC":
-                t, u, times = run_dimension_experiments(df, cols)
+                t, _, u, times = run_dimension_experiments(df, cols)
             else:
                 t, u, times = run_competitor_column_experiments(df, cols, method)
 
@@ -59,7 +59,7 @@ def report_results(predictions, times_taken, evaluations, methods, output_path):
 
     # Save the performance
     metrics_df = calculate_metrics(evaluations_df, methods)
-    metrics_df.to_latex(output_path + "evaluations.tex")
+    metrics_df.to_latex(output_path + "dimension_evaluations.tex")
 
     # Vizualize the results (normalized confusion matrices and runtimes)
     plot_hintons(evaluations_df, output_path, methods)
