@@ -541,16 +541,6 @@ def round_float(standard_unit_indices, counts):
     return format(100 * sum(counts[standard_unit_indices]) / sum(counts), ".2f")
 
 
-def read_dataset(dataset_name, ALL_PATHS):
-    encoding = "utf-8" if dataset_name == "zomato" else "ISO-8859-1"
-    return pd.read_csv(
-        ALL_PATHS[dataset_name]["data"],
-        sep=",",
-        encoding=encoding,
-        dtype=str,
-        keep_default_na=False,
-        skipinitialspace=True,
-    )
 
 
 def load_json_2_dict(filename):

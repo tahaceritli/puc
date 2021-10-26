@@ -3,49 +3,45 @@ from fractions import Fraction
 from quantulum3 import parser
 
 from experiments.Constants import DATA_PATHS
+from experiments.utils_IO import read_dataset
 from src.PUC import PUC
-from src.utils import (
-    read_dataset,
-    convert_value,
-    parse_cell_value,
-)
+from src.utils import parse_cell_value
 
-import csv
 import numpy as np
 import pint
-import sys
 import time
 
-sys.path.append("ccut/app/ccut_lib/")
-
-# from main.canonical_compound_unit_transformation import CanonicalCompoundUnitTransformation as CCUT
-# from qudt.ontology import UnitFactory
-# from arpeggio import NoMatch
-
-# from grobid_quantities.quantities import QuantitiesClient
-from pathlib import Path
-
-# from nltk.tag.stanford import StanfordNERTagger
-# from nltk.tokenize import word_tokenize
-
-# jar = "/Users/tceritli/Workspace/git/github/aida-repos/processing_meta_data/src/stanford-ner-2018-10-16/stanford-ner.jar"
-# model = "/Users/tceritli/Workspace/git/github/aida-repos/processing_meta_data/src/stanford-ner-2018-10-16/data-dictionary.ser.gz"
-# trained_ner_tagger = StanfordNERTagger(model, jar, encoding="utf8")
-
 Q_ = pint.UnitRegistry().Quantity
-# ccut = CCUT()
-#
-# grobid_server_url = "http://localhost:8060/service"
-# client = QuantitiesClient(apiBase=grobid_server_url)
 
 # unitCanonicalizer = UnitCanonicalizer(unit_ontology_path='notebooks/unit-normalization/units_wikidata.json')
 unitCanonicalizer = PUC(unit_ontology_path="experiments/inputs/unit_ontology.json")
 
+# from arpeggio import NoMatch
+
+# uncomment the following once S-NER is setup
+# from nltk.tag.stanford import StanfordNERTagger
+# from nltk.tokenize import word_tokenize
+# jar = "/Users/tceritli/Workspace/git/github/aida-repos/processing_meta_data/src/stanford-ner-2018-10-16/stanford-ner.jar"
+# model = "/Users/tceritli/Workspace/git/github/aida-repos/processing_meta_data/src/stanford-ner-2018-10-16/data-dictionary.ser.gz"
+# trained_ner_tagger = StanfordNERTagger(model, jar, encoding="utf8")
+
+# uncomment the following once CCUT is setup
+# import sys
+# sys.path.append("ccut/app/ccut_lib/")
+# from main.canonical_compound_unit_transformation import CanonicalCompoundUnitTransformation as CCUT
+# from qudt.ontology import UnitFactory
+# ccut = CCUT()
+
+# uncomment the following once GQ is setup
+# from grobid_quantities.quantities import QuantitiesClient
+# grobid_server_url = "http://localhost:8060/service"
+# client = QuantitiesClient(apiBase=grobid_server_url)
+
 
 def quantulum_predict(_cell_value):
     quants = parser.parse(_cell_value)
-    if len(quants) > 1:
-        print("more than one quant!", quants)
+    # if len(quants) > 1:
+    #     print("more than one quant!", quants)
 
     if len(quants) == 0:
         return "Not Identified"
@@ -129,41 +125,11 @@ def grobid_quantities_predict(_cell_value):
     return prediction
 
 
-# def unit_canonicalizer_predict(_cell_value, _cell_type, exponential=False):
-#     if exponential:
-#         print('based on exponential!')
-#         [y, output] = unitCanonicalizer.identify_unit_cell_exponential(_cell_value, _cell_type)
-#     else:
-#         [y, output] = unitCanonicalizer.identify_unit_cell(_cell_value, _cell_type)
-#     # fix annotations for 'magnitude-less'
-#     if y == '':
-#         y = 1.0
-#     prediction = {'magnitude':y, 'unit':output}
-#
-#     return prediction
-
-
 def unit_canonicalizer_predict(y_i, t, u):
-    print("y_i, t, u", y_i, len(y_i), t, u)
+    # print("y_i, t, u", y_i, len(y_i), t, u)
     v_i, z_i = unitCanonicalizer.infer_cell_unit(y_i, t, u)
     prediction = {"magnitude": v_i, "unit": z_i}
     return z_i
-
-
-# def ccut_predict(_cell_value):
-#     canonical_form = ccut.ccu_repr(_cell_value)
-#
-#     magnitude = canonical_form['ccut:hasPart'][0]['ccut:multiplier']
-#     unit = canonical_form['ccut:hasPart'][0]['qudtp:symbol']
-#     if unit == 'UNKNOWN TYPE':
-#         prediction = 'UNKNOWN TYPE'
-#     else:
-#         if 'ccut:prefix' in canonical_form['ccut:hasPart'][0]:
-#             unit = canonical_form['ccut:hasPart'][0]['ccut:prefix'].split('#')[-1] + canonical_form['ccut:hasPart'][0]['qudtp:quantityKind'].split('#')[-1]
-#         else:
-#             unit = canonical_form['ccut:hasPart'][0]['qudtp:quantityKind'].split('#')[-1]
-#         prediction = {'magnitude':magnitude, 'unit':unit.lower()}
-#     return prediction
 
 
 def ccut_predict(_cell_value):
@@ -229,8 +195,8 @@ def evaluate_prediction(truth, prediction):
                     and (truth["unit"] in prediction["unit"][0])
                 )
         else:
-            if len(prediction["unit"]) > 1:
-                print("multiple matches", prediction["unit"])
+            # if len(prediction["unit"]) > 1:
+            #     print("multiple matches", prediction["unit"])
             return False
 
     else:
@@ -262,12 +228,12 @@ def evaluate_identification_experiment(dataset, columns, annotations, ps):
                 ):
                     correct += 1
                 else:
-                    print(
-                        "False prediction!:",
-                        unique_value,
-                        annotations[unique_value],
-                        predictions[unique_value],
-                    )
+                    # print(
+                    #     "False prediction!:",
+                    #     unique_value,
+                    #     annotations[unique_value],
+                    #     predictions[unique_value],
+                    # )
                     false += 1
             else:
                 print("Not annotated!", unique_value, len(unique_value))
@@ -276,138 +242,6 @@ def evaluate_identification_experiment(dataset, columns, annotations, ps):
         evaluations[column]["false"] = false
 
     return evaluations
-
-
-def evaluate_euc_prediction(truth, prediction, column_unit_symbol):
-
-    # to convert '1/2' to 0.5
-    if (type(prediction) == dict) and type(prediction["magnitude"]) == str:
-        prediction["magnitude"] = float(Fraction(prediction["magnitude"]))
-
-    float_magnitude = float(prediction["magnitude"])
-    if type(prediction) != dict:
-        print("prediction is not a dictionary!!!!")
-        return None
-    else:
-        if type(prediction["unit"]) == list:
-            if len(prediction["unit"]) == 1:
-
-                if type(truth["unit"]) == list:
-                    # when they are both lists
-                    intersection = set(prediction["unit"]).intersection(
-                        set(truth["unit"])
-                    )
-                    identification = (truth["magnitude"] == float_magnitude) and (
-                        len(intersection) > 0
-                    )
-                    conversion_predicted = convert_value(
-                        float_magnitude, list(intersection)[0], column_unit_symbol
-                    )
-                    conversion_truth = convert_value(
-                        truth["magnitude"], list(intersection)[0], column_unit_symbol
-                    )
-                    return identification and (conversion_predicted == conversion_truth)
-                else:
-                    # when only the prediction is a list
-                    identification = (truth["magnitude"] == float_magnitude) and (
-                        truth["unit"] in prediction["unit"]
-                    )
-                    conversion_predicted = convert_value(
-                        float_magnitude, prediction["unit"][0], column_unit_symbol
-                    )
-                    conversion_truth = convert_value(
-                        truth["magnitude"], truth["unit"], column_unit_symbol
-                    )
-                    return identification and (conversion_predicted == conversion_truth)
-            else:
-                if len(prediction["unit"]) > 1:
-                    print("multiple matches", prediction["unit"])
-                return None
-
-        else:
-            # when prediction is not a list
-            identification = (truth["magnitude"] == float_magnitude) and (
-                prediction["unit"] in truth["unit"]
-            )
-            conversion_predicted = convert_value(
-                float_magnitude, prediction["unit"], column_unit_symbol
-            )
-            conversion_truth = convert_value(
-                truth["magnitude"], prediction["unit"], column_unit_symbol
-            )
-
-            return identification and (conversion_predicted == conversion_truth)
-
-
-def evaluate_euc_experiment(df, annotations, predictions, column_unit):
-
-    evaluations = {}
-    pint_dimerrors = []
-    false_predictions = []
-
-    correct = 0
-    unique_values = np.unique(df.values)
-    for unique_value in unique_values:
-        if unique_value in annotations:
-            # print('\tunique_value', unique_value)
-            # print('\tcolumn_unit_symbol', column_unit_symbol)
-            # print('\tannotation', annotations[unique_value])
-            # print('\tprediction', predictions[unique_value])
-
-            try:
-                res = evaluate_euc_prediction(
-                    annotations[unique_value], predictions[unique_value], column_unit
-                )
-            except DimensionalityError:
-                res = "DimensionalityError"
-                pint_dimerrors.append(unique_value)
-            if res:
-                correct += 1
-            else:
-                false_predictions.append(unique_value)
-                # print('False prediction!:', unique_value, annotations[unique_value], predictions[unique_value], column_unit_symbol)
-        else:
-            print("Not annotated!:", unique_value, predictions[unique_value])
-
-    evaluations["correct"] = correct
-    evaluations["pint_dimerrors"] = pint_dimerrors
-    evaluations["false_predictions"] = false_predictions
-    return evaluations
-
-
-def evaluate_type_experiment(dataset, columns, annotations, predictions, features):
-    evaluations = {}
-
-    for column in columns:
-        evaluations[column] = {
-            feature: {
-                "correct": annotations[column],
-                "predict": predictions[column][feature],
-            }
-            for feature in features
-        }
-
-    return evaluations
-
-
-def evaluate_column_measurement_type_experiment(columns, annotations, predictions):
-    evaluations = {}
-
-    for column in columns:
-        evaluations[column] = {
-            "correct": annotations[column],
-            "predict": predictions[column],
-        }
-
-    return evaluations
-
-
-def save_output(dataset_name, predicted_types):
-    with open("experiments/outputs/" + dataset_name + ".csv", "w") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Column", "ptype"])
-        for column_name in predicted_types:
-            writer.writerow([column_name, predicted_types[column_name]])
 
 
 def infer_type_column(df, _column_name, _features):
@@ -496,20 +330,6 @@ def identify_row_unit(x_i, method, t=None, u=None):
     return prediction
 
 
-def run_type_experiment(df, columns, features):
-
-    predicted_types = {}
-    p_z = {}
-    if columns == "all":
-        columns = df.columns
-
-    for column in columns:
-        predicted_types[column], p_z[column] = infer_type_column(df, column, features)
-
-    # save_output(dataset, predicted_types)
-    return predicted_types, p_z
-
-
 def run_measurement_type_experiment(df, columns):
 
     predicted_types = {}
@@ -532,13 +352,8 @@ def run_dimension_experiments(df, columns):
 
     times = {}
     for column in columns:
-        # why? this doesn't feel correct. but it's useful for fast computation.
-        # it's actually fixed in the other evaluations
         y = np.unique(df[column].to_frame()[column].values)
         _, v, x = parse_values(y)
-
-        # # for unique symbols
-        # x = np.unique(x)
 
         t0 = time.time()
         generate_likelihoods(x)
@@ -563,13 +378,13 @@ def run_dimension_experiments(df, columns):
 def run_competitor_column_experiments(df, columns, method):
     if method == "Quantulum":
         return run_quantulum_column_experiments(df, columns)
-    elif method == "ccut":
+    elif method == "CCUT":
         return run_ccut_column_experiments(df, columns)
-    elif method == "grobid":
+    elif method == "GQ":
         return run_grobid_column_experiments(df, columns)
     elif method == "Pint":
         return run_pint_column_experiments(df, columns)
-    elif method == "ner":
+    elif method == "S-NER":
         return run_ner_column_experiments(df, columns)
 
 
@@ -608,22 +423,23 @@ def run_quantulum_column_experiments(df, columns):
 
 def run_ccut_column_experiments(df, columns):
 
-    predicted_types = {}
+    predicted_dims = {}
     if columns == "all":
         columns = df.columns
     times = {}
+    undetected_units = []
     for column in columns:
-        temp_types = []
+        temp_dims = []
         unique_values = df[column].unique()
         t0 = time.time()
         for unique_value in unique_values:
             try:
-                predicted_type = ccut_predict(unique_value)["entity"]
-                temp_types.append(predicted_type)
+                predicted_dim = ccut_predict(unique_value)["entity"]
+                temp_dims.append(predicted_dim)
             except:
-                print(unique_value, " is not detected")
+                undetected_units.append(unique_value)
 
-        cntr = Counter(temp_types)
+        cntr = Counter(temp_dims)
         if len(cntr) == 0:
             t = "unknown"
         else:
@@ -632,30 +448,32 @@ def run_ccut_column_experiments(df, columns):
                 t = cntr.most_common(2)[1][0]
 
         delta_t = time.time() - t0
-        predicted_types[column] = t
+        predicted_dims[column] = t
         times[column] = delta_t
 
-    return predicted_types, times
+    return predicted_dims, None, times
 
 
 def run_grobid_column_experiments(df, columns):
 
-    predicted_types = {}
+    predicted_dims = {}
     if columns == "all":
         columns = df.columns
     times = {}
+    undetected_units = []
+
     for column in columns:
-        temp_types = []
+        temp_dims = []
         unique_values = df[column].unique()
         t0 = time.time()
         for unique_value in unique_values:
             try:
-                predicted_type = grobid_quantities_predict(unique_value)["entity"]
-                temp_types.append(predicted_type)
+                predicted_dim = grobid_quantities_predict(unique_value)["entity"]
+                temp_dims.append(predicted_dim)
             except:
-                print(unique_value, " is not detected")
+                undetected_units.append(unique_value)
 
-        cntr = Counter(temp_types)
+        cntr = Counter(temp_dims)
         if len(cntr) == 0:
             t = "unknown"
         else:
@@ -664,10 +482,10 @@ def run_grobid_column_experiments(df, columns):
                 t = cntr.most_common(2)[1][0]
 
         delta_t = time.time() - t0
-        predicted_types[column] = t
+        predicted_dims[column] = t
         times[column] = delta_t
 
-    return predicted_types, times
+    return predicted_dims, None, times
 
 
 def run_pint_column_experiments(df, columns):
@@ -704,13 +522,14 @@ def run_pint_column_experiments(df, columns):
 
 def run_ner_column_experiments(df, columns):
 
-    predicted_types = {}
+    predicted_dims = {}
     if columns == "all":
         columns = df.columns
 
     times = {}
+    undetected_units = []
     for column in columns:
-        type_counts = {}
+        dim_counts = {}
         unique_values = df[column].unique()
         t0 = time.time()
         units = [parse_cell_value(unique_value)[1] for unique_value in unique_values]
@@ -719,29 +538,26 @@ def run_ner_column_experiments(df, columns):
         for unique_unit in np.unique(units):
             print("processing=", unique_unit)
             try:
-                predicted_type = ner_predict(unique_unit)
-                if predicted_type in type_counts:
-                    type_counts[predicted_type] += unit_counts[unique_unit]
+                predicted_dim = ner_predict(unique_unit)
+                if predicted_dim in dim_counts:
+                    dim_counts[predicted_dim] += unit_counts[unique_unit]
                 else:
-                    type_counts[predicted_type] = unit_counts[unique_unit]
-
-                print("unique_unit=", unique_unit)
-                print("predicted_type=", predicted_type)
+                    dim_counts[predicted_dim] = unit_counts[unique_unit]
             except:
-                print(unique_unit, " is not detected")
+                undetected_units.append(unique_unit)
 
-        if len(type_counts) == 0:
+        if len(dim_counts) == 0:
             t = "unknown"
         else:
-            t = max(type_counts, key=type_counts.get)
+            t = max(dim_counts, key=dim_counts.get)
             if t == "dimensionless":
-                t = list(sorted(type_counts.values()))[-2]
+                t = list(sorted(dim_counts.values()))[-2]
 
         delta_t = time.time() - t0
-        predicted_types[column] = t
+        predicted_dims[column] = t
         times[column] = delta_t
 
-    return predicted_types, times
+    return predicted_dims, None, times
 
 
 def run_identification_experiment(

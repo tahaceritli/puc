@@ -3,6 +3,7 @@ from mpltools import special
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import seaborn as sns
 
 
@@ -39,6 +40,8 @@ def plot_hinton(
 
 
 def plot_hintons(df, path, methods):
+    if not (os.path.exists(path)):
+        os.mkdir(path)
     type_indices = {
         "currency": 0,
         "data storage": 1,

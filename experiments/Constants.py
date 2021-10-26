@@ -1,5 +1,5 @@
 # CONSTANTS FOR PATHS
-DATA_ROOT = "experiments/inputs/files new/"
+DATA_ROOT = "experiments/inputs/files_new/"
 INPUT_ROOT = "experiments/inputs/"
 OUTPUT_ROOT = "experiments/outputs/"
 DATASETS = [

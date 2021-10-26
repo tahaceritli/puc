@@ -4,7 +4,10 @@
 	- virtualenv venv
 	- source venv/bin/activate
 	- pip install -r requirements.txt
-4) resolve the mpltools/special/hinton.py set_axis_bgcolor issue by replacing it with set_facecolor (see https://github.com/tonysyu/mpltools/issues/33 for the details)
-
-5) run column dimension experimenets using python -m experiments.reproduce_dimension_exps
-6) run unit identification experimenets using python -m src.experiments.reproduce_cell_unit_exps
+4) resolve the venv/lib/python3.8/site-packages/mpltools/special/hinton.py set_axis_bgcolor issue by replacing
+it with set_facecolor (see https://github.com/tonysyu/mpltools/issues/33 for the details)
+5) run column dimension experiments using python -m experiments.reproduce_dimension_exps
+    - note that we are not allowed to share the HES dataset. you can download it at https://tinyurl.com/ybbqu3n3
+    if you would like to run the methods on the HES dataset.
+    - installing CCUT, GQ and S-NER are complicated. please follow the corresponding instructions.
+6) run unit identification experiments using python -m src.experiments.reproduce_cell_unit_exps

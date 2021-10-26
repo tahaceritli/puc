@@ -13,7 +13,7 @@ def run(data_paths, datasets, methods):
     times_taken = {dataset: {} for dataset in datasets}
 
     for dataset in datasets:
-        print("running on ", dataset, "...")
+        print("running on " + dataset + "...")
 
         df = read_dataset(dataset, ALL_PATHS=DATA_PATHS)
         cols = data_paths[dataset]["columns"]
@@ -29,43 +29,6 @@ def run(data_paths, datasets, methods):
             times_taken = update_times_taken(dataset, method, times, times_taken)
 
     return type_predictions, unit_predictions, times_taken
-    # ccut_type_predictions = {}
-    # grobid_type_predictions = {}
-    # quantulum_type_predictions = {}
-    # pint_type_predictions = {}
-    # ner_type_type_predictions = {}
-    # spacy_type_type_predictions = {}
-
-    # # print(type_predictions, unit_predictions)
-    # method = "quantulum"
-    # t, times = run_competitor_column_experiments(df, columns, method)
-    # quantulum_type_predictions[dataset] = t
-    # times_taken = update_times_taken(dataset, method, times, times_taken)
-    #
-    # method = "ccut"
-    # t, times = run_competitor_column_experiments(df, columns, method)
-    # ccut_type_predictions[dataset] = t
-    # times_taken = update_times_taken(dataset, method, times, times_taken)
-    #
-    # method = "grobid"
-    # t, times = run_competitor_column_experiments(df, columns, method)
-    # grobid_type_predictions[dataset] = t
-    # times_taken = update_times_taken(dataset, method, times, times_taken)
-    #
-    # method = "pint"
-    # t, times = run_competitor_column_experiments(df, columns, method)
-    # pint_type_type_predictions[dataset] = t
-    # times_taken = update_times_taken(dataset, method, times, times_taken)
-    #
-    # method = "ner"
-    # t, times = run_competitor_column_experiments(df, columns, method)
-    # ner_type_type_predictions[dataset] = t
-    # times_taken = update_times_taken(dataset, method, times, times_taken)
-
-    # method = 'spacy'
-    # t, times = run_competitor_column_experiments(df, columns, method)
-    # spacy_type_type_predictions[dataset] = t
-    # times_taken = update_times_taken(dataset, method, times, times_taken)
 
 
 def evaluate_predictions(predictions, input_path):
@@ -86,9 +49,9 @@ def evaluate_predictions(predictions, input_path):
 
 def report_results(predictions, times_taken, evaluations, methods, output_path):
     # Save results
-    np.save(output_path + "dimension_predictions.npy", predictions)
-    np.save(output_path + "times_taken.npy", times_taken)
-    np.save(output_path + "dimension_evaluations.npy", evaluations)
+    np_save(output_path, "dimension_predictions.npy", predictions)
+    np_save(output_path, "times_taken.npy", times_taken)
+    np_save(output_path, "dimension_evaluations.npy", evaluations)
 
     # Calculate the results and putting them in dataframes
     evaluations_df = as_table(evaluations, methods)
@@ -118,14 +81,14 @@ if __name__ == "__main__":
     from experiments.utils_experiment import (
         run_dimension_experiments,
         run_competitor_column_experiments,
-        # evaluate_column_measurement_type_experiment,
-        read_dataset,
     )
+    from experiments.utils_IO import np_save, read_dataset
     from experiments.utils_viz import plot_hintons, plot_runtimes
     from experiments.Constants import DATA_PATHS, DATASETS, INPUT_ROOT, OUTPUT_ROOT
 
     import json
-    import numpy as np
 
-    methods = ["Quantulum", "Pint", "PUC"]
+    methods = ["Pint", "Quantulum", "PUC"]
+    # use the following if the other competitor methods are setup
+    # methods = ["CCUT", "GQ", "Pint", "S-NER", "Quantulum", "PUC"]
     main(DATA_PATHS, DATASETS, methods, INPUT_ROOT, OUTPUT_ROOT)
